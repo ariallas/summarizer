@@ -63,6 +63,9 @@ class TextProcessor:
 
         text = self.get_document_text(folder)
         fixed_text = self.fix_text(text)
+        fixed_text = re.sub(r'[^\w]+',' ', fixed_text)
+        for i in fixed_text:
+            print(i)
         print(fixed_text)
 
 if __name__ == "__main__":
