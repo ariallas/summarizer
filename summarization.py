@@ -13,7 +13,6 @@ class TextProcessor:
         tokens = self.word_regexp.findall(text.lower())
         filtered_tokens = []
         for token in tokens:
-            ch = token[0]
             if stop_words is not None and token in stop_words:
                 continue
             filtered_tokens.append(token)
@@ -40,22 +39,34 @@ class TextProcessor:
 
     @staticmethod
     def fix_text(text_string):
+        # Connecting string with a previous one, if it ended in '-'
         joined_text_string = ""
         for string in text_string.splitlines():
             if len(string) < 2:
                 continue
+            try:
+                int(string)
+                continue
+            except:
+                pass
             if string[-1] == '-' or string[-1] == '­' or string[-1] == '­':
                 joined_text_string += string[:-1]
             else:
                 joined_text_string += string
 
-        for i in range(len(joined_text_string) - 1):
-            if joined_text_string[i] == '.':
-                joined_text_string = joined_text_string[:i + 1] + ' ' + joined_text_string[i + 1:]
-        return joined_text_string
+        # Replacing nonprintable characters
+        fixed_text = ""
+        for ch in joined_text_string:
+            if ch == '.':
+                substr = '. '
+            elif ord(ch) > 1120:
+                substr = '?'
+            else:
+                substr = ch
+            fixed_text += substr
+        return fixed_text
 
     def process_texts(self):
-        text_string = ""
         # folder = '..\\text\\bd000087382'  # сленг
         # folder = '..\\text\\bd000000190'  # фитонимы
         # folder = '..\\text\\bd000000509'  # предприятие
@@ -63,9 +74,6 @@ class TextProcessor:
 
         text = self.get_document_text(folder)
         fixed_text = self.fix_text(text)
-        fixed_text = re.sub(r'[^\w]+',' ', fixed_text)
-        for i in fixed_text:
-            print(i)
         print(fixed_text)
 
 if __name__ == "__main__":
