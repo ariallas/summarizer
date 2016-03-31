@@ -8,6 +8,13 @@ import re
 class TextProcessor:
     def __init__(self):
         self.word_regexp = re.compile(u"(?u)\w+")
+        self.approximate_line_length = 0
+
+        self.is_list = False
+        self.list_pos = None
+        self.last_list_pos = 0
+
+        self.lists = []
 
     def tokenize(self, text, stop_words=None):
         tokens = self.word_regexp.findall(text.lower())
@@ -15,6 +22,7 @@ class TextProcessor:
         for token in tokens:
             if stop_words is not None and token in stop_words:
                 continue
+            # Here we can insert some token filters if needed
             filtered_tokens.append(token)
         return filtered_tokens
 
@@ -37,44 +45,128 @@ class TextProcessor:
                 text += f.read()
         return text
 
+    # try to determine if a new line is really needed, or it was just a line break
+    def is_new_line(self, current_line, previous_line):
+        self.last_list_pos -= 1
+        if self.last_list_pos <= 0:
+            self.is_list = False
+        if current_line[0] in '123456789' and current_line[1] in '.)' or \
+                current_line[0] in '123456789' and current_line[1] in '0123456789' and current_line[2] in '.)':
+            print(current_line)
+            print(self.is_list)
+            print(self)
+            if current_line[1] in '.)':
+                number = int(current_line[0])
+            else:
+                number = int(current_line[:2])
+            if number == 1 and not self.is_list:
+                self.is_list = True
+                self.list_pos = 1
+                self.last_list_pos = 8
+            elif self.is_list and (number == self.list_pos + 1 or number == self.list_pos + 2):
+                self.list_pos = number
+                self.last_list_pos = 8
+            else:
+                return False
+            return True
+        elif len(previous_line) < self.approximate_line_length * 0.8:
+            return True
+        elif ord(current_line[0]) in range(ord('а'), ord('я')) and previous_line[-1] not in '.;:':
+            return False
+        elif current_line[0] == '-' and previous_line[-1] in ';.:':
+            return True
+        return False
+
     @staticmethod
-    def fix_text(text_string):
-        # Connecting string with a previous one, if it ended in '-'
-        joined_text_string = ""
-        for string in text_string.splitlines():
-            if len(string) < 2:
+    def remove_extra_spaces(text):
+        new_text = ""
+        previous_ch = ' '
+        for line in text.splitlines():
+            if len(line) < 2:
+                continue
+            new_line = ''
+            for ch in line:
+                if not (ch == ' ' and previous_ch == ' '):
+                    new_line += ch
+                previous_ch = ch
+            while new_line[-1] == ' ':
+                new_line = new_line[:-1]
+            new_text += '\n' + new_line
+        return new_text
+
+    @staticmethod
+    def find_line_length(text):  # Figuring out the approximate line length in original pdf
+        length_dictionary = dict()
+        for line in text.splitlines():
+            length_dictionary.setdefault(len(line), 0)
+            length_dictionary[len(line)] += 1
+        length_sum = 0
+        total_lines = 0
+        for item in length_dictionary.items():
+            if item[0] > 2 and item[1] > 1:
+                length_sum += item[0] * item[1]
+                total_lines += item[1]
+        return int(length_sum / total_lines)  # using average for now, can be done smarter
+
+    def join_lines(self, text):  # Trying to set newlines as they were inteded
+        new_text = ' '
+        previous_line = ""
+        for line in text.splitlines():
+            if len(line) < 2:
                 continue
             try:
-                int(string)
+                # Single number on the line is most probably a page number
+                int(line)
                 continue
-            except:
+            except ValueError:
                 pass
-            if string[-1] == '-' or string[-1] == '­' or string[-1] == '­':
-                joined_text_string += string[:-1]
+            if new_text[-1] == '-':
+                new_text = new_text[:-1] + line
+            elif self.is_new_line(line, previous_line):
+                new_text = new_text + '\n' + line
             else:
-                joined_text_string += string
+                new_text = new_text + ' ' + line
+            previous_line = line
+        return new_text
 
-        # Replacing nonprintable characters
-        fixed_text = ""
-        for ch in joined_text_string:
-            if ch == '.':
-                substr = '. '
-            elif ord(ch) > 1120:
+    @staticmethod
+    def filter_lines(text):
+        new_text = ''
+        for line in text.splitlines():
+            if line[:4] == 'Рис.' or line[:4] == 'Табл':
+                continue
+            new_text += '\n' + line
+        return new_text
+
+    @staticmethod
+    def replace_nonprintable_characters(text):
+        printable_text = ""
+        for ch in text:
+            if ord(ch) > 1120:
                 substr = '?'
             else:
                 substr = ch
-            fixed_text += substr
-        return fixed_text
+            printable_text += substr
+        return printable_text
+
+    def improve_text_quality(self, text):
+        text = self.remove_extra_spaces(text)
+        self.approximate_line_length = self.find_line_length(text)
+        text = self.replace_nonprintable_characters(text)
+        text = self.join_lines(text)
+        text = self.filter_lines(text)
+
+        return text
 
     def process_texts(self):
         # folder = '..\\text\\bd000087382'  # сленг
         # folder = '..\\text\\bd000000190'  # фитонимы
         # folder = '..\\text\\bd000000509'  # предприятие
-        folder = '..\\text\\bd000000053'
+        folder = '..\\text\\bd000000515'
 
         text = self.get_document_text(folder)
-        fixed_text = self.fix_text(text)
-        print(fixed_text)
+        fixed_text = self.improve_text_quality(text)
+        # print(fixed_text)
 
 if __name__ == "__main__":
     tp = TextProcessor()
