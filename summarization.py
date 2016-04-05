@@ -5,6 +5,26 @@ import nltk
 import re
 
 
+class TextSection:
+    def __init__(self):
+        pass
+
+
+class TextPart:
+    def __init__(self):
+        pass
+
+
+class TextParagraph(TextPart):
+    def __init__(self):
+        pass
+
+
+class TextList(TextPart):
+    def __init__(self):
+        pass
+
+
 class TextProcessor:
     def __init__(self):
         self.word_regexp = re.compile(u"(?u)\w+")
