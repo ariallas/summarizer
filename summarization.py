@@ -14,8 +14,6 @@ class TextProcessor:
         self.list_pos = None
         self.last_list_pos = 0
 
-        self.lists = []
-
     def tokenize(self, text, stop_words=None):
         tokens = self.word_regexp.findall(text.lower())
         filtered_tokens = []
@@ -52,9 +50,6 @@ class TextProcessor:
             self.is_list = False
         if current_line[0] in '123456789' and current_line[1] in '.)' or \
                 current_line[0] in '123456789' and current_line[1] in '0123456789' and current_line[2] in '.)':
-            print(current_line)
-            print(self.is_list)
-            print(self)
             if current_line[1] in '.)':
                 number = int(current_line[0])
             else:
@@ -166,7 +161,7 @@ class TextProcessor:
 
         text = self.get_document_text(folder)
         fixed_text = self.improve_text_quality(text)
-        # print(fixed_text)
+        print(fixed_text)
 
 if __name__ == "__main__":
     tp = TextProcessor()
