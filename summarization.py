@@ -3,11 +3,20 @@
 import glob
 import nltk
 import re
+from enum import Enum
+
+
+class SectionType(Enum):
+    Beginning = 1
+    Ending = 2
 
 
 class TextSection:
     def __init__(self):
-        pass
+        self.parts = []
+
+    def add_part(self, part):
+        self.parts.append(part)
 
 
 class TextPart:
@@ -17,11 +26,13 @@ class TextPart:
 
 class TextParagraph(TextPart):
     def __init__(self):
+        TextPart.__init__(self)
         pass
 
 
 class TextList(TextPart):
     def __init__(self):
+        TextPart.__init__(self)
         pass
 
 
@@ -30,9 +41,7 @@ class TextProcessor:
         self.word_regexp = re.compile(u"(?u)\w+")
         self.approximate_line_length = 0
 
-        self.is_list = False
-        self.list_pos = None
-        self.last_list_pos = 0
+        self.text_sections = []
 
     def tokenize(self, text, stop_words=None):
         tokens = self.word_regexp.findall(text.lower())
@@ -65,25 +74,16 @@ class TextProcessor:
 
     # try to determine if a new line is really needed, or it was just a line break
     def is_new_line(self, current_line, previous_line):
-        self.last_list_pos -= 1
-        if self.last_list_pos <= 0:
-            self.is_list = False
         if current_line[0] in '123456789' and current_line[1] in '.)' or \
                 current_line[0] in '123456789' and current_line[1] in '0123456789' and current_line[2] in '.)':
             if current_line[1] in '.)':
                 number = int(current_line[0])
             else:
                 number = int(current_line[:2])
-            if number == 1 and not self.is_list:
-                self.is_list = True
-                self.list_pos = 1
-                self.last_list_pos = 8
-            elif self.is_list and (number == self.list_pos + 1 or number == self.list_pos + 2):
-                self.list_pos = number
-                self.last_list_pos = 8
+            if 0 < number < 50:
+                return True
             else:
                 return False
-            return True
         elif len(previous_line) < self.approximate_line_length * 0.8:
             return True
         elif ord(current_line[0]) in range(ord('а'), ord('я')) and previous_line[-1] not in '.;:':
@@ -121,7 +121,15 @@ class TextProcessor:
             if item[0] > 2 and item[1] > 1:
                 length_sum += item[0] * item[1]
                 total_lines += item[1]
-        return int(length_sum / total_lines)  # using average for now, can be done smarter
+        average = int(length_sum / total_lines)
+        line_length = average
+        for i in range(average, int(average * 0.8), -1):  # Certainly not the smartest way to do this
+            if length_dictionary[i] / length_dictionary[i + 1] < 0.5:
+                line_length = i
+                break
+        print(average)
+        print(line_length)
+        return line_length
 
     def join_lines(self, text):  # Trying to set newlines as they were inteded
         new_text = ' '
